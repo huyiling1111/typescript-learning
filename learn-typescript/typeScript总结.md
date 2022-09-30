@@ -570,3 +570,183 @@ function identity <T, U>(value: T, message: U) : T {
 console.log(identity<Number, string>(68, "Semlinker"));
 
 ```
+
+
+#### 泛型约束 
+假如我想打印出参数的 size 属性呢？如果完全不进行约束 TS 是会报错的： 
+```
+function trace<T>(arg: T): T {
+  console.log(arg.size); // Error: Property 'size doesn't exist on type 'T'
+  return arg;
+}
+```  
+报错的原因在于 T 理论上是可以是任何类型的，不同于 any，你不管使用它的什么属性或者方法都会报错（除非这个属性和方法是所有集合共有的）。那么直观的想法是限定传给 trace 函数的参数类型应该有 size 类型，这样就不会报错了。如何去表达这个类型约束的点呢？实现这个需求的关键在于使用类型约束。 使用 extends 关键字可以做到这一点。简单来说就是你定义一个类型，然后让 T 实现这个接口即可。 
+
+```
+interface Sizeable {
+  size: number;
+}
+function trace<T extends Sizeable>(arg: T): T {
+  console.log(arg.size);
+  return arg;
+}
+``` 
+#### 泛型工具类型 
+##### 1.typeof
+typeof 的主要用途是在类型上下文中获取变量或者属性的类型，下面我们通过一个具体示例来理解一下。 
+
+```
+interface Person {
+  name: string;
+  age: number;
+}
+const sem: Person = { name: "semlinker", age: 30 };
+type Sem = typeof sem; // type Sem = Person
+``` 
+在上面代码中，我们通过 typeof 操作符获取 sem 变量的类型并赋值给 Sem 类型变量，之后我们就可以使用 Sem 类型  
+```
+const lolo: Sem = { name: "lolo", age: 5 }
+```
+ 
+你也可以对嵌套对象执行相同的操作：
+
+```
+const Message = {
+    name: "jimmy",
+    age: 18,
+    address: {
+      province: '四川',
+      city: '成都'   
+    }
+}
+type message = typeof Message;
+/*
+ type message = {
+    name: string;
+    age: number;
+    address: {
+        province: string;
+        city: string;
+    };
+}
+*/
+
+
+``` 
+##### 2.keyof 
+该操作符可以用于获取某种类型的所有键，其返回类型是联合类型。 
+```
+interface Person {
+  name: string;
+  age: number;
+}
+
+type K1 = keyof Person; // "name" | "age"
+type K2 = keyof Person[]; // "length" | "toString" | "pop" | "push" | "concat" | "join" 
+type K3 = keyof { [x: string]: Person };  // string | number
+```
+```
+type Todo = {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+const todo: Todo = {
+  id: 1,
+  text: "Learn TypeScript keyof",
+  done: false
+}
+
+function prop<T extends object, K extends keyof T>(obj: T, key: K) {
+  return obj[key];
+}
+
+const id = prop(todo, "id"); // const id: number
+const text = prop(todo, "text"); // const text: string
+const done = prop(todo, "done"); // const done: boolean
+
+``` 
+
+##### 3.in
+in 用来遍历枚举类型 
+```
+type Keys = "a" | "b" | "c"
+
+type Obj =  {
+  [p in Keys]: any
+} // -> { a: any, b: any, c: any }
+``` 
+
+使用枚举可以定义一些带名字的常量,可以清晰的表达意图
+```
+enum DDD{
+  up =0,
+  down =5,
+  left =2,
+  right =3
+}
+let ddd:DDD = DDD.down
+switch(ddd){
+   case(DDD.down){
+
+   }
+}
+```
+##### 4.extends 
+有时候我们定义的泛型不想过于灵活或者说想继承某些类等，可以通过 extends 关键字添加泛型约束。 
+
+``` 
+interface Lengthwise {
+  length: number;
+}
+
+function loggingIdentity<T extends Lengthwise>(arg: T): T {
+  console.log(arg.length);
+  return arg;
+}
+
+``` 
+这时我们需要传入符合约束类型的值，必须包含length属性： 
+```
+loggingIdentity({length: 10, value: 3});
+```  
+
+##### 5.索引类型 
+
+```
+let person = {
+    name: 'musion',
+    age: 35
+}
+
+function getValues(person: any, keys: string[]) {
+    return keys.map(key => person[key])
+}
+
+console.log(getValues(person, ['name', 'age'])) // ['musion', 35]
+console.log(getValues(person, ['gender'])) // [undefined]
+```
+
+改造成
+```
+function getValues<T, K extends keyof T>(person: T, keys: k[]):T[K][] {
+    return keys.map(key => person[key])
+}
+interface Person {
+    name: string;
+    age: number;
+}
+
+const person: Person = {
+    name: 'musion',
+    age: 35
+}
+
+getValues(person, ['name']) // ['musion']
+getValues(person, ['gender']) // 报错：
+// Argument of Type '"gender"[]' is not assignable to parameter of type '("name" | "age")[]'.
+// Type "gender" is not assignable to type "name" | "age".
+
+```
+![alt 属性文本](/Users/huyiling/Desktop)
